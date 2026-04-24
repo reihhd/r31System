@@ -55,7 +55,7 @@ local function checkPlayer(player, cfg)
     end
 
     -- Cek lewat HumanoidDescription scale
-    local desc = humanoid:FindFirstChildOfClass("HumanoidDescription")
+    local desc = humanoid.BodyDepthScale
     if desc then
         local scales = {
             desc.BodyDepthScale,
