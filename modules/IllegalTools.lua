@@ -108,8 +108,6 @@ function IllegalTools.start(loader, config)
         cfg[k] = (config and config[k] ~= nil) and config[k] or v
     end
 
-    print("[r31|IllegalTools] Aktif — whitelist: " .. table.concat(cfg.WHITELIST, ", ") .. " | remove=" .. tostring(cfg.REMOVE_ILLEGAL))
-
     local function onPlayerAdded(player)
         local data = { violations = 0, connections = {} }
         playerData[player] = data
