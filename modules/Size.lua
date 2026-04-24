@@ -11,6 +11,13 @@ local DEFAULT_CONFIG = {
 
 local playerData = setmetatable({}, { __mode = "k" })
 
+local function getScaleValue(scaleObject)
+    if scaleObject and scaleObject:IsA("NumberValue") then
+        return scaleObject.Value
+    end
+    return 1.0  -- nilai normal jika tidak ada
+end
+
 local function checkPlayer(player, cfg)
     local data = playerData[player]
     if not data then return end
@@ -20,16 +27,21 @@ local function checkPlayer(player, cfg)
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     if not humanoid or humanoid.Health <= 0 then return end
 
-    -- Ambil skala dari Humanoid (properti yang benar)
-    local bodyDepth = humanoid.BodyDepthScale
-    local bodyHeight = humanoid.BodyHeightScale
-    local bodyWidth = humanoid.BodyWidthScale
-    local bodyProportion = humanoid.BodyProportionScale
-    local bodyType = humanoid.BodyTypeScale
+    -- Ambil NumberValue dari Humanoid
+    local depthScale = humanoid:FindFirstChild("BodyDepthScale")
+    local heightScale = humanoid:FindFirstChild("BodyHeightScale")
+    local widthScale = humanoid:FindFirstChild("BodyWidthScale")
+    local proportionScale = humanoid:FindFirstChild("BodyProportionScale")
+    local typeScale = humanoid:FindFirstChild("BodyTypeScale")
 
-    -- Cek apakah ada yang melebihi batas
-    local maxScale = math.max(bodyDepth, bodyHeight, bodyWidth, bodyProportion, bodyType)
-    local minScale = math.min(bodyDepth, bodyHeight, bodyWidth, bodyProportion, bodyType)
+    local depth = getScaleValue(depthScale)
+    local height = getScaleValue(heightScale)
+    local width = getScaleValue(widthScale)
+    local proportion = getScaleValue(proportionScale)
+    local bodyType = getScaleValue(typeScale)
+
+    local maxScale = math.max(depth, height, width, proportion, bodyType)
+    local minScale = math.min(depth, height, width, proportion, bodyType)
 
     if maxScale > cfg.MAX_SCALE or minScale < cfg.MIN_SCALE then
         data.violations = (data.violations or 0) + 1
