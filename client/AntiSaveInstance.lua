@@ -1,4 +1,4 @@
--- Client-side anti-saveinstance (LocalScript)
+-- AntiSaveInstance client-side
 local RunService = game:GetService("RunService")
 if RunService:IsStudio() then return end
 
