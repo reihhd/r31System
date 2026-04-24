@@ -55,10 +55,10 @@ local function checkPlayer(player, cfg)
     end
 
     -- Cek lewat HumanoidDescription scale
-    local desc = humanoid.BodyDepthScale
+    local desc = humanoid:FindFirstChild("HumanoidDescription")
     if desc then
         local scales = {
-            desc.BodyDepthScale,
+            humanoid.BodyDepthScale,
             desc.BodyHeightScale,
             desc.BodyWidthScale,
             desc.HeadScale,
@@ -80,7 +80,7 @@ local function checkPlayer(player, cfg)
 
                 -- Paksa reset scale ke normal
                 pcall(function()
-                    desc.BodyDepthScale  = 1
+                    humanoid.BodyDepthScale  = 1
                     desc.BodyHeightScale = 1
                     desc.BodyWidthScale  = 1
                     desc.HeadScale       = 1
