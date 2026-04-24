@@ -5,9 +5,11 @@ local HttpService = game:GetService("HttpService")
 local BASE_URL = "https://raw.githubusercontent.com/reihhd/r31System/main/modules/"
 
 local MODULE_LIST = {
-	"Fly",
-	"GodMode",
-	"Honeypot",
+    "Fly",
+    "GodMode",
+    "Honeypot",
+    "NoClip",   -- tambah
+    "Size",     -- tambah
 }
 
 local function fetchModule(moduleName)
