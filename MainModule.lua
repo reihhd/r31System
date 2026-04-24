@@ -7,6 +7,7 @@ local BASE_URL = "https://raw.githubusercontent.com/reihhd/r31System/main/module
 local MODULE_LIST = {
 	"Fly",
 	"GodMode",
+	"Honeypot",
 }
 
 local function fetchModule(moduleName)
