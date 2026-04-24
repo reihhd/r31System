@@ -1,4 +1,4 @@
--- ReplicatedFirst -> AntiSaveInstance (LocalScript)
+-- Client-side anti-saveinstance (LocalScript)
 local RunService = game:GetService("RunService")
 if RunService:IsStudio() then return end
 
