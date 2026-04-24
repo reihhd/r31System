@@ -12,7 +12,8 @@ local MODULE_LIST = {
     "Size",
     "Speed",
     "Teleport",
-    "AutoWalk",   -- <-- tambah ini
+    "AutoWalk",
+	"AgeCheck",
 }
 
 local function fetchModule(moduleName)
