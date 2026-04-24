@@ -4,6 +4,11 @@ local HttpService = game:GetService("HttpService")
 
 local BASE_URL = "https://raw.githubusercontent.com/reihhd/r31System/main/modules/"
 
+local MODULE_LIST = {
+	"Fly",
+	"GodMode",
+}
+
 local function fetchModule(moduleName)
 	local url = BASE_URL .. moduleName .. ".lua"
 
@@ -52,9 +57,7 @@ local function getSettings(loader)
 	return result
 end
 
-local MODULE_LIST = {
-	"Fly",
-}
+
 
 function MainModule.initialize(loader)
 	print("[r31] Memuat anti-cheat dari GitHub...")
