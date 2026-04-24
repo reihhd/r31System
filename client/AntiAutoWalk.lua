@@ -1,4 +1,4 @@
--- Client-side anti auto-walk (LocalScript)
+-- AntiAutoWalk client-side
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -6,7 +6,6 @@ local RunService = game:GetService("RunService")
 
 if RunService:IsStudio() then return end
 
--- Konfigurasi
 local GRACE_PERIOD = 0.6
 local CHECK_INTERVAL = 0.3
 local VIOLATION_LIMIT = 3
