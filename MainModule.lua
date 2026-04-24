@@ -8,8 +8,11 @@ local MODULE_LIST = {
     "Fly",
     "GodMode",
     "Honeypot",
-    "NoClip",   -- tambah
-    "Size",     -- tambah
+    "NoClip",
+    "Size",
+    "Speed",
+    "Teleport",
+    "AutoWalk",   -- <-- tambah ini
 }
 
 local function fetchModule(moduleName)
