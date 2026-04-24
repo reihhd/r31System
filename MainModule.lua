@@ -14,6 +14,7 @@ local MODULE_LIST = {
     "Teleport",
     "AutoWalk",
 	"AgeCheck",
+	"IllegalTools",
 }
 
 local function fetchModule(moduleName)
