@@ -1,34 +1,36 @@
 local Teleport = {}
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
 local DEFAULT_CONFIG = {
-    CHECK_INTERVAL   = 1.0,
-    VIOLATIONS_KICK  = 3,
-    MAX_DISTANCE     = 200,    -- jarak maksimal per interval (studs)
+    CHECK_INTERVAL  = 1.0,
+    VIOLATIONS_KICK = 3,
+    MAX_DISTANCE    = 200,
 }
 
-local lastPositions = setmetatable({}, { __mode = "k" })
-local violations = setmetatable({}, { __mode = "k" })
+local playerData = setmetatable({}, { __mode = "k" })
 
 local function checkPlayer(player, cfg)
+    local data = playerData[player]
+    if not data then return end
+
     local char = player.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
     local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then return end
+    if not hrp or not humanoid or humanoid.Health <= 0 then return end
 
     local currentPos = hrp.Position
-    local lastPos = lastPositions[player]
 
-    if lastPos then
-        local distance = (currentPos - lastPos).Magnitude
-        if distance > cfg.MAX_DISTANCE then
-            violations[player] = (violations[player] or 0) + 1
-            warn(string.format("[r31|Teleport] %s → distance jumped: %.1f studs", player.Name, distance))
-            if violations[player] >= cfg.VIOLATIONS_KICK then
+    if data.lastPos then
+        local dist = (currentPos - data.lastPos).Magnitude
+        if dist > cfg.MAX_DISTANCE then
+            data.violations += 1
+            warn(string.format(
+                "[r31|Teleport] %s → jumped %.1f studs | Flag=%d/%d",
+                player.Name, dist, data.violations, cfg.VIOLATIONS_KICK
+            ))
+            if data.violations >= cfg.VIOLATIONS_KICK then
                 task.defer(function()
                     if player and player.Parent then
                         player:Kick("[r31] Teleport hack detected.")
@@ -36,48 +38,60 @@ local function checkPlayer(player, cfg)
                 end)
             end
         else
-            if violations[player] and violations[player] > 0 then
-                violations[player] = violations[player] - 1
-            end
+            if data.violations > 0 then data.violations -= 1 end
         end
     end
 
-    lastPositions[player] = currentPos
+    data.lastPos = currentPos
 end
 
-function Teleport.start(loader, config)
+local playerCount = 0
+
+local function onPlayerAdded(player, cfg)
+    playerCount += 1
+    local offset = (playerCount - 1) * 0.15
+
+    playerData[player] = { violations = 0, lastPos = nil, connections = {} }
+
+    local conn = player.CharacterAdded:Connect(function()
+        if playerData[player] then
+            playerData[player].violations = 0
+            playerData[player].lastPos    = nil
+        end
+    end)
+    table.insert(playerData[player].connections, conn)
+
+    task.delay(offset, function()
+        while playerData[player] do
+            checkPlayer(player, cfg)
+            task.wait(cfg.CHECK_INTERVAL)
+        end
+    end)
+end
+
+local function onPlayerRemoving(player)
+    local data = playerData[player]
+    if data then
+        for _, conn in ipairs(data.connections) do
+            conn:Disconnect()
+        end
+    end
+    playerData[player] = nil
+end
+
+function Teleport.start(_loader, config)
     local cfg = {}
     for k, v in pairs(DEFAULT_CONFIG) do
         cfg[k] = (config and config[k] ~= nil) and config[k] or v
     end
 
-    print("[r31|Teleport] Aktif — interval=" .. cfg.CHECK_INTERVAL .. "s, maxDist=" .. cfg.MAX_DISTANCE)
+    print("[r31|Teleport] Aktif — maxDist=" .. cfg.MAX_DISTANCE)
 
     for _, p in ipairs(Players:GetPlayers()) do
-        lastPositions[p] = nil
-        violations[p] = 0
+        onPlayerAdded(p, cfg)
     end
-
-    Players.PlayerAdded:Connect(function(p)
-        lastPositions[p] = nil
-        violations[p] = 0
-    end)
-
-    Players.PlayerRemoving:Connect(function(p)
-        lastPositions[p] = nil
-        violations[p] = nil
-    end)
-
-    task.spawn(function()
-        while true do
-            for _, p in ipairs(Players:GetPlayers()) do
-                task.defer(function()
-                    checkPlayer(p, cfg)
-                end)
-            end
-            task.wait(cfg.CHECK_INTERVAL)
-        end
-    end)
+    Players.PlayerAdded:Connect(function(p) onPlayerAdded(p, cfg) end)
+    Players.PlayerRemoving:Connect(onPlayerRemoving)
 end
 
 return Teleport
