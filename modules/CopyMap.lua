@@ -13,6 +13,9 @@ local DEFAULT_CONFIG = {
     IMPORTANT_FOLDERS   = { "Map", "Baseplate" },
 }
 
+-- ============================================================
+-- UTIL
+-- ============================================================
 local function randomName(len)
     local chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     local result = {}
@@ -35,11 +38,14 @@ local function obfuscateWorkspace(cfg)
     end
 end
 
+-- ============================================================
+-- DISCORD WEBHOOK
+-- ============================================================
 local function sendDiscord(player, webhook)
     if not webhook or webhook == "" then return end
     local data = {
         embeds = {{
-            title       = "🚨 SaveInstance Terdeteksi!",
+            title = "🚨 SaveInstance Terdeteksi!",
             description = string.format(
                 "**Player:** %s\n**UserId:** %d\n**GameId:** %d",
                 player.Name, player.UserId, game.GameId
@@ -57,6 +63,9 @@ local function sendDiscord(player, webhook)
     end)
 end
 
+-- ============================================================
+-- HANDLE REPORT DARI CLIENT
+-- ============================================================
 local reported = setmetatable({}, { __mode = "k" })
 
 local function handleReport(player, cfg)
@@ -77,6 +86,9 @@ local function handleReport(player, cfg)
     end
 end
 
+-- ============================================================
+-- SETUP REMOTE
+-- ============================================================
 local function setupRemote(cfg)
     local existing = ReplicatedStorage:FindFirstChild(cfg.REPORT_REMOTE_NAME)
     if existing then existing:Destroy() end
@@ -90,71 +102,25 @@ local function setupRemote(cfg)
             handleReport(player, cfg)
         end
     end)
+
+    print("[r31|CopyMap] Remote '" .. cfg.REPORT_REMOTE_NAME .. "' siap")
 end
 
-local function injectClientScript(remoteName)
-    local repFirst = game:GetService("ReplicatedFirst")
-
-    local old = repFirst:FindFirstChild("r31_CM")
-    if old then old:Destroy() end
-
-    local ls        = Instance.new("LocalScript")
-    ls.Name         = "r31_CM"
-    ls.Parent       = repFirst
-
-    -- Source dibuat manual agar tidak ada string escape issue
-    local src = {}
-    src[#src+1] = 'local RunService = game:GetService("RunService")'
-    src[#src+1] = 'if RunService:IsStudio() then return end'
-    src[#src+1] = 'local Players    = game:GetService("Players")'
-    src[#src+1] = 'local RepStorage = game:GetService("ReplicatedStorage")'
-    src[#src+1] = 'local remote     = RepStorage:WaitForChild("' .. remoteName .. '", 15)'
-    src[#src+1] = 'if not remote then return end'
-    src[#src+1] = 'local reported = false'
-    src[#src+1] = 'local function report()'
-    src[#src+1] = '    if reported then return end'
-    src[#src+1] = '    reported = true'
-    src[#src+1] = '    pcall(function() remote:FireServer("SaveInstance") end)'
-    src[#src+1] = 'end'
-    src[#src+1] = '-- Deteksi 1: UGCValidationService'
-    src[#src+1] = 'task.spawn(function()'
-    src[#src+1] = '    while not reported do'
-    src[#src+1] = '        if pcall(function() return game:GetService("UGCValidationService") end) then'
-    src[#src+1] = '            report()'
-    src[#src+1] = '        end'
-    src[#src+1] = '        task.wait(0.5)'
-    src[#src+1] = '    end'
-    src[#src+1] = 'end)'
-    src[#src+1] = '-- Deteksi 2: Scan CoreGui untuk inject exploit'
-    src[#src+1] = 'task.spawn(function()'
-    src[#src+1] = '    local coreGui = game:GetService("CoreGui")'
-    src[#src+1] = '    while not reported do'
-    src[#src+1] = '        for _, child in ipairs(coreGui:GetChildren()) do'
-    src[#src+1] = '            local n = child.Name:lower()'
-    src[#src+1] = '            if n:find("save") or n:find("dump") or n:find("copy") then'
-    src[#src+1] = '                report()'
-    src[#src+1] = '            end'
-    src[#src+1] = '        end'
-    src[#src+1] = '        task.wait(1)'
-    src[#src+1] = '    end'
-    src[#src+1] = 'end)'
-
-    ls.Source = table.concat(src, "\n")
-end
-
+-- ============================================================
+-- ENTRY POINT
+-- ============================================================
 function CopyMap.start(_loader, config)
     local cfg = {}
     for k, v in pairs(DEFAULT_CONFIG) do
         cfg[k] = (config and config[k] ~= nil) and config[k] or v
     end
-    cfg.IMPORTANT_FOLDERS  = (config and config.IMPORTANT_FOLDERS) or DEFAULT_CONFIG.IMPORTANT_FOLDERS
-    cfg.DISCORD_WEBHOOK    = (config and config.DISCORD_WEBHOOK)   or DEFAULT_CONFIG.DISCORD_WEBHOOK
+    cfg.IMPORTANT_FOLDERS = (config and config.IMPORTANT_FOLDERS) or DEFAULT_CONFIG.IMPORTANT_FOLDERS
+    cfg.DISCORD_WEBHOOK   = (config and config.DISCORD_WEBHOOK)   or DEFAULT_CONFIG.DISCORD_WEBHOOK
 
     print("[r31|CopyMap] Aktif")
 
     obfuscateWorkspace(cfg)
     setupRemote(cfg)
-    injectClientScript(cfg.REPORT_REMOTE_NAME)
 
     Players.PlayerRemoving:Connect(function(player)
         reported[player] = nil
