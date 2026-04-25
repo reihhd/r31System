@@ -35,7 +35,7 @@ local function isInsideWall(character, hrp)
     for _, part in ipairs(parts) do
         -- Skip part yang bukan BasePart solid
         if part:IsA("BasePart") and
-           not part.CanCollide == false and
+           part.CanCollide == true and
            part.Transparency < 1 then
             return true, part.Name
         end
