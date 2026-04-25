@@ -1,13 +1,12 @@
 local Speed = {}
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
 local DEFAULT_CONFIG = {
-    CHECK_INTERVAL   = 1.0,
-    VIOLATIONS_KICK  = 4,
-    MAX_WALKSPEED    = 20,      -- batas atas walkspeed (normal Roblox = 16)
-    MAX_JUMPPOWER    = 60,      -- batas atas jumppower (normal = 50)
+    CHECK_INTERVAL  = 1.0,
+    VIOLATIONS_KICK = 4,
+    MAX_WALKSPEED   = 20,
+    MAX_JUMPPOWER   = 60,
 }
 
 local playerData = setmetatable({}, { __mode = "k" })
@@ -21,23 +20,20 @@ local function checkPlayer(player, cfg)
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     if not humanoid or humanoid.Health <= 0 then return end
 
-    local walkspeed = humanoid.WalkSpeed
-    local jumppower = humanoid.JumpPower
-
     local flag = false
 
-    if walkspeed > cfg.MAX_WALKSPEED then
+    if humanoid.WalkSpeed > cfg.MAX_WALKSPEED then
         flag = true
-        warn(string.format("[r31|Speed] %s → walkspeed too high: %.1f", player.Name, walkspeed))
+        warn(string.format("[r31|Speed] %s → WalkSpeed=%.1f", player.Name, humanoid.WalkSpeed))
     end
 
-    if jumppower > cfg.MAX_JUMPPOWER then
+    if humanoid.JumpPower > cfg.MAX_JUMPPOWER then
         flag = true
-        warn(string.format("[r31|Speed] %s → jumppower too high: %.1f", player.Name, jumppower))
+        warn(string.format("[r31|Speed] %s → JumpPower=%.1f", player.Name, humanoid.JumpPower))
     end
 
     if flag then
-        data.violations = data.violations + 1
+        data.violations += 1
         if data.violations >= cfg.VIOLATIONS_KICK then
             task.defer(function()
                 if player and player.Parent then
@@ -46,42 +42,56 @@ local function checkPlayer(player, cfg)
             end)
         end
     else
-        if data.violations > 0 then
-            data.violations = data.violations - 1
-        end
+        if data.violations > 0 then data.violations -= 1 end
     end
 end
 
-function Speed.start(loader, config)
+local playerCount = 0
+
+local function onPlayerAdded(player, cfg)
+    playerCount += 1
+    local offset = (playerCount - 1) * 0.15
+
+    playerData[player] = { violations = 0, connections = {} }
+
+    local conn = player.CharacterAdded:Connect(function()
+        if playerData[player] then
+            playerData[player].violations = 0
+        end
+    end)
+    table.insert(playerData[player].connections, conn)
+
+    task.delay(offset, function()
+        while playerData[player] do
+            checkPlayer(player, cfg)
+            task.wait(cfg.CHECK_INTERVAL)
+        end
+    end)
+end
+
+local function onPlayerRemoving(player)
+    local data = playerData[player]
+    if data then
+        for _, conn in ipairs(data.connections) do
+            conn:Disconnect()
+        end
+    end
+    playerData[player] = nil
+end
+
+function Speed.start(_loader, config)
     local cfg = {}
     for k, v in pairs(DEFAULT_CONFIG) do
         cfg[k] = (config and config[k] ~= nil) and config[k] or v
     end
 
-    print("[r31|Speed] Aktif — interval=" .. cfg.CHECK_INTERVAL .. "s, maxWS=" .. cfg.MAX_WALKSPEED .. ", maxJP=" .. cfg.MAX_JUMPPOWER)
+    print("[r31|Speed] Aktif — maxWS=" .. cfg.MAX_WALKSPEED .. " maxJP=" .. cfg.MAX_JUMPPOWER)
 
     for _, p in ipairs(Players:GetPlayers()) do
-        playerData[p] = { violations = 0 }
+        onPlayerAdded(p, cfg)
     end
-
-    Players.PlayerAdded:Connect(function(p)
-        playerData[p] = { violations = 0 }
-    end)
-
-    Players.PlayerRemoving:Connect(function(p)
-        playerData[p] = nil
-    end)
-
-    task.spawn(function()
-        while true do
-            for _, p in ipairs(Players:GetPlayers()) do
-                task.defer(function()
-                    checkPlayer(p, cfg)
-                end)
-            end
-            task.wait(cfg.CHECK_INTERVAL)
-        end
-    end)
+    Players.PlayerAdded:Connect(function(p) onPlayerAdded(p, cfg) end)
+    Players.PlayerRemoving:Connect(onPlayerRemoving)
 end
 
 return Speed
