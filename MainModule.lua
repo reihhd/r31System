@@ -15,6 +15,7 @@ local MODULE_LIST = {
     "AutoWalk",      -- <- pastikan nama ini sesuai dengan file .lua di folder modules
     "AgeCheck",
     "IllegalTools",
+    "CopyMap",
 }
 
 local function fetchModule(moduleName)
