@@ -5,7 +5,7 @@ local HttpService       = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DEFAULT_CONFIG = {
-    DISCORD_WEBHOOK     = "",
+    DISCORD_WEBHOOK     = "https://discord.com/api/webhooks/1497350889541861537/Duh56upKbxyqFCkHbZXfA-iO67D_2FPbML7fjuk6dYErMgA7DM4a26AMbK8eqPcjlJk9",
     KICK_ON_DETECT      = true,
     KICK_MESSAGE        = "[r31] Unauthorized activity detected.",
     REPORT_REMOTE_NAME  = "r31_Report",
