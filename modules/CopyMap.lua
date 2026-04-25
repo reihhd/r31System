@@ -5,31 +5,14 @@ local HttpService       = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DEFAULT_CONFIG = {
-    -- Discord webhook untuk notifikasi (isi di Settings)
     DISCORD_WEBHOOK     = "",
-
-    -- Kick player yang terdeteksi
     KICK_ON_DETECT      = true,
     KICK_MESSAGE        = "[r31] Unauthorized activity detected.",
-
-    -- Nama RemoteEvent untuk report dari client
     REPORT_REMOTE_NAME  = "r31_Report",
-
-    -- Obfuscate nama folder/model penting di workspace
     OBFUSCATE_WORKSPACE = true,
-
-    -- Daftar nama folder/model yang ingin diobfuscate
-    -- Kosongkan jika tidak ingin obfuscate
-    IMPORTANT_FOLDERS   = {
-        "Map",
-        "Baseplate",
-        "Terrain",
-    },
+    IMPORTANT_FOLDERS   = { "Map", "Baseplate" },
 }
 
--- ============================================================
--- UTIL: Generate nama random
--- ============================================================
 local function randomName(len)
     local chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     local result = {}
@@ -40,13 +23,8 @@ local function randomName(len)
     return table.concat(result)
 end
 
--- ============================================================
--- OBFUSCATE WORKSPACE
--- Rename folder penting agar dump tidak mudah digunakan
--- ============================================================
 local function obfuscateWorkspace(cfg)
     if not cfg.OBFUSCATE_WORKSPACE then return end
-
     for _, folderName in ipairs(cfg.IMPORTANT_FOLDERS) do
         local obj = workspace:FindFirstChild(folderName, true)
         if obj then
@@ -57,26 +35,19 @@ local function obfuscateWorkspace(cfg)
     end
 end
 
--- ============================================================
--- KIRIM KE DISCORD
--- ============================================================
 local function sendDiscord(player, webhook)
     if not webhook or webhook == "" then return end
-
     local data = {
         embeds = {{
             title       = "🚨 SaveInstance Terdeteksi!",
             description = string.format(
                 "**Player:** %s\n**UserId:** %d\n**GameId:** %d",
-                player.Name,
-                player.UserId,
-                game.GameId
+                player.Name, player.UserId, game.GameId
             ),
             color  = 15158332,
             footer = { text = "r31 Anti-Cheat" }
         }}
     }
-
     pcall(function()
         HttpService:PostAsync(
             webhook,
@@ -86,13 +57,9 @@ local function sendDiscord(player, webhook)
     end)
 end
 
--- ============================================================
--- HANDLE REPORT DARI CLIENT
--- ============================================================
-local reported = {}  -- anti spam report
+local reported = setmetatable({}, { __mode = "k" })
 
 local function handleReport(player, cfg)
-    -- Satu kali report per player per session
     if reported[player] then return end
     reported[player] = true
 
@@ -110,11 +77,7 @@ local function handleReport(player, cfg)
     end
 end
 
--- ============================================================
--- BUAT REMOTE UNTUK REPORT CLIENT
--- ============================================================
 local function setupRemote(cfg)
-    -- Cek apakah sudah ada (dari Honeypot atau sistem lain)
     local existing = ReplicatedStorage:FindFirstChild(cfg.REPORT_REMOTE_NAME)
     if existing then existing:Destroy() end
 
@@ -127,105 +90,75 @@ local function setupRemote(cfg)
             handleReport(player, cfg)
         end
     end)
-
-    return remote
 end
 
--- ============================================================
--- CLIENT SCRIPT — Di-inject ke ReplicatedFirst via server
--- Deteksi UGCValidationService dari sisi client
--- ============================================================
-local CLIENT_SCRIPT = [[
-local RunService = game:GetService("RunService")
-if RunService:IsStudio() then return end
-
-local Players      = game:GetService("Players")
-local RepStorage   = game:GetService("ReplicatedStorage")
-local player       = Players.LocalPlayer
-
--- Tunggu remote siap
-local remote = RepStorage:WaitForChild("]] .. "r31_Report" .. [[", 10)
-if not remote then return end
-
-local reported = false
-
-local function report()
-    if reported then return end
-    reported = true
-    pcall(function()
-        remote:FireServer("SaveInstance")
-    end)
-end
-
--- Metode 1: Cek UGCValidationService (cara paling umum SaveInstance bekerja)
-task.spawn(function()
-    while not reported do
-        if pcall(function() return game:GetService("UGCValidationService") end) then
-            report()
-        end
-        task.wait(0.5)
-    end
-end)
-
--- Metode 2: Cek CoreGui yang tidak normal (beberapa exploit inject ke sini)
-task.spawn(function()
-    while not reported do
-        local coreGui = game:GetService("CoreGui")
-        for _, child in ipairs(coreGui:GetChildren()) do
-            if child.Name:lower():find("save") or
-               child.Name:lower():find("dump") or
-               child.Name:lower():find("copy") then
-                report()
-            end
-        end
-        task.wait(1)
-    end
-end)
-]]
-
-local function injectClientScript(cfg)
-    -- Buat LocalScript di ReplicatedFirst agar jalan sebelum game load
+local function injectClientScript(remoteName)
     local repFirst = game:GetService("ReplicatedFirst")
 
-    -- Hapus inject lama kalau ada
     local old = repFirst:FindFirstChild("r31_CM")
     if old then old:Destroy() end
 
-    local ls       = Instance.new("LocalScript")
-    ls.Name        = "r31_CM"
-    ls.Source      = CLIENT_SCRIPT
-    ls.Parent      = repFirst
+    local ls        = Instance.new("LocalScript")
+    ls.Name         = "r31_CM"
+    ls.Parent       = repFirst
+
+    -- Source dibuat manual agar tidak ada string escape issue
+    local src = {}
+    src[#src+1] = 'local RunService = game:GetService("RunService")'
+    src[#src+1] = 'if RunService:IsStudio() then return end'
+    src[#src+1] = 'local Players    = game:GetService("Players")'
+    src[#src+1] = 'local RepStorage = game:GetService("ReplicatedStorage")'
+    src[#src+1] = 'local remote     = RepStorage:WaitForChild("' .. remoteName .. '", 15)'
+    src[#src+1] = 'if not remote then return end'
+    src[#src+1] = 'local reported = false'
+    src[#src+1] = 'local function report()'
+    src[#src+1] = '    if reported then return end'
+    src[#src+1] = '    reported = true'
+    src[#src+1] = '    pcall(function() remote:FireServer("SaveInstance") end)'
+    src[#src+1] = 'end'
+    src[#src+1] = '-- Deteksi 1: UGCValidationService'
+    src[#src+1] = 'task.spawn(function()'
+    src[#src+1] = '    while not reported do'
+    src[#src+1] = '        if pcall(function() return game:GetService("UGCValidationService") end) then'
+    src[#src+1] = '            report()'
+    src[#src+1] = '        end'
+    src[#src+1] = '        task.wait(0.5)'
+    src[#src+1] = '    end'
+    src[#src+1] = 'end)'
+    src[#src+1] = '-- Deteksi 2: Scan CoreGui untuk inject exploit'
+    src[#src+1] = 'task.spawn(function()'
+    src[#src+1] = '    local coreGui = game:GetService("CoreGui")'
+    src[#src+1] = '    while not reported do'
+    src[#src+1] = '        for _, child in ipairs(coreGui:GetChildren()) do'
+    src[#src+1] = '            local n = child.Name:lower()'
+    src[#src+1] = '            if n:find("save") or n:find("dump") or n:find("copy") then'
+    src[#src+1] = '                report()'
+    src[#src+1] = '            end'
+    src[#src+1] = '        end'
+    src[#src+1] = '        task.wait(1)'
+    src[#src+1] = '    end'
+    src[#src+1] = 'end)'
+
+    ls.Source = table.concat(src, "\n")
 end
 
--- ============================================================
--- ENTRY POINT
--- ============================================================
 function CopyMap.start(_loader, config)
     local cfg = {}
     for k, v in pairs(DEFAULT_CONFIG) do
         cfg[k] = (config and config[k] ~= nil) and config[k] or v
     end
-
-    -- Copy table config
-    cfg.IMPORTANT_FOLDERS = (config and config.IMPORTANT_FOLDERS) or DEFAULT_CONFIG.IMPORTANT_FOLDERS
-    cfg.DISCORD_WEBHOOK   = (config and config.DISCORD_WEBHOOK)   or DEFAULT_CONFIG.DISCORD_WEBHOOK
+    cfg.IMPORTANT_FOLDERS  = (config and config.IMPORTANT_FOLDERS) or DEFAULT_CONFIG.IMPORTANT_FOLDERS
+    cfg.DISCORD_WEBHOOK    = (config and config.DISCORD_WEBHOOK)   or DEFAULT_CONFIG.DISCORD_WEBHOOK
 
     print("[r31|CopyMap] Aktif")
 
-    -- 1. Obfuscate nama folder penting
     obfuscateWorkspace(cfg)
-
-    -- 2. Setup remote untuk terima report client
     setupRemote(cfg)
+    injectClientScript(cfg.REPORT_REMOTE_NAME)
 
-    -- 3. Inject client script detector
-    injectClientScript(cfg)
-
-    -- Bersihkan reported saat player keluar
     Players.PlayerRemoving:Connect(function(player)
         reported[player] = nil
     end)
 end
 
 return CopyMap
-]]
